@@ -1,20 +1,33 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import React from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { createStackNavigator } from '@react-navigation/stack';
+import { StatusBar } from 'react-native';
+import { TrainingProvider } from './src/context/TrainingContext';
+import MainTabNavigator from './src/navigation/MainTabNavigator';
+import AddTrainingScreen from './src/screens/AddTrainingScreen';
+import TrainingDetailsScreen from './src/screens/TrainingDetailsScreen';
+
+const Stack = createStackNavigator();
 
 export default function App() {
   return (
-    <View style={styles.container}>
-      <Text>Open up App.js to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
+    <TrainingProvider>
+      <StatusBar barStyle="light-content" backgroundColor="#000" />
+      <NavigationContainer>
+        <Stack.Navigator
+          screenOptions={{
+            headerShown: false,
+            cardStyle: { backgroundColor: '#000' }
+          }}
+        >
+          {/* Главные экраны через TabBar */}
+          <Stack.Screen name="MainTabs" component={MainTabNavigator} />
+          
+          {/* Модальные экраны (без TabBar) */}
+          <Stack.Screen name="AddTraining" component={AddTrainingScreen} />
+          <Stack.Screen name="TrainingDetails" component={TrainingDetailsScreen} />
+        </Stack.Navigator>
+      </NavigationContainer>
+    </TrainingProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
