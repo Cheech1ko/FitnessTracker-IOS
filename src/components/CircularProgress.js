@@ -1,91 +1,83 @@
-// src/components/CircularProgress.js
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text as RNText } from 'react-native'; // Добавляем RNText
+import Svg, { Circle, G, Text as SvgText } from 'react-native-svg'; // SvgText для SVG
 
-const CircularProgress = ({ value, maxValue, radius = 50, color = '#0a84ff', title }) => {
-  const percentage = Math.min((value / maxValue) * 100, 100);
-  const strokeWidth = 8;
-  const center = radius + strokeWidth;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (percentage / 100) * circumference;
+const CircularProgress = ({ 
+  size = 100, 
+  progress = 0, 
+  strokeWidth = 8, 
+  color = '#0A84FF',
+  label = '',
+  unit = ''
+}) => {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = radius * 2 * Math.PI;
+  const strokeDashoffset = circumference - (progress / 100) * circumference;
 
   return (
-    <View style={styles.container}>
-      <View style={[
-        styles.circleContainer,
-        { width: center * 2, height: center * 2 }
-      ]}>
-        {/* Фоновый круг */}
-        <View style={[
-          styles.circle,
-          { 
-            width: radius * 2, 
-            height: radius * 2,
-            borderRadius: radius,
-            borderWidth: strokeWidth,
-            borderColor: '#2c2c2e'
-          }
-        ]} />
+    <View style={{ alignItems: 'center', width: size, height: size }}>
+      <Svg width={size} height={size}>
+        <G rotation="-90" origin={`${size / 2}, ${size / 2}`}>
+          {/* Фоновый круг */}
+          <Circle
+            cx="50%"
+            cy="50%"
+            r={radius}
+            stroke="#2C2C2E"
+            strokeWidth={strokeWidth}
+            fill="transparent"
+            strokeOpacity={0.3}
+          />
+          
+          {/* Прогресс */}
+          <Circle
+            cx="50%"
+            cy="50%"
+            r={radius}
+            stroke={color}
+            strokeWidth={strokeWidth}
+            fill="transparent"
+            strokeDasharray={circumference}
+            strokeDashoffset={strokeDashoffset}
+            strokeLinecap="round"
+            strokeOpacity={0.9}
+          />
+        </G>
+      </Svg>
+      
+      {/* Центральный текст - используем React Native Text */}
+      <View style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}>
+        <RNText style={{
+          color: '#FFFFFF',
+          fontSize: size * 0.25,
+          fontWeight: '700',
+          textAlign: 'center',
+        }}>
+          {label}
+        </RNText>
         
-        {/* Прогресс круг */}
-        <View style={[
-          styles.progressCircle,
-          { 
-            width: radius * 2, 
-            height: radius * 2,
-            borderRadius: radius,
-            borderWidth: strokeWidth,
-            borderColor: color,
-            borderLeftColor: 'transparent',
-            transform: [{ rotate: `${-90 + (percentage / 100) * 360}deg` }]
-          }
-        ]} />
-        
-        {/* Центральный текст */}
-        <View style={styles.centerText}>
-          <Text style={styles.value}>{value}</Text>
-          <Text style={styles.maxValue}>/{maxValue}</Text>
-          {title && <Text style={styles.title}>{title}</Text>}
-        </View>
+        {unit && (
+          <RNText style={{
+            color: '#8E8E93',
+            fontSize: size * 0.12,
+            fontWeight: '500',
+            marginTop: 2,
+            textAlign: 'center',
+          }}>
+            {unit}
+          </RNText>
+        )}
       </View>
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  circleContainer: {
-    position: 'relative',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  circle: {
-    position: 'absolute',
-  },
-  progressCircle: {
-    position: 'absolute',
-  },
-  centerText: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  value: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  maxValue: {
-    fontSize: 14,
-    color: '#8e8e93',
-  },
-  title: {
-    fontSize: 12,
-    color: '#8e8e93',
-    marginTop: 4,
-  },
-});
 
 export default CircularProgress;

@@ -1,348 +1,350 @@
-// src/screens/HomeScreen.js - ПОЛНЫЙ КОД
-import React from 'react';
+import React, { useContext } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Dimensions,
-  Alert
+  StyleSheet,
 } from 'react-native';
-import { useTrainingContext } from '../context/TrainingContext';
-import moment from 'moment';
-import 'moment/locale/ru';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import TrainingContext from '../context/TrainingContext';
+import CircularProgress from '../components/CircularProgress';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { useSafeArea } from '../hooks/useSafeArea';
+import { useTheme } from '../context/ThemeContext';
 
-const { width } = Dimensions.get('window');
-moment.locale('ru');
-
-// Кастомный круговой прогресс-бар (упрощенный)
-const CircularProgress = ({ value, maxValue, color = '#0a84ff', label }) => {
-  const percentage = Math.min((value / maxValue) * 100, 100);
-  const size = width * 0.25;
+const HomeScreen = ({ navigation }) => {
+  const trainingContext = useContext(TrainingContext);
+  const { safeAreaStyle } = useSafeArea();
+  const { colors } = useTheme();
   
+  // Функция для получения тренировок за текущую неделю
+  const getWeekTrainings = () => {
+    const trainings = trainingContext?.trainings || [];
+    const now = new Date();
+    
+    // Определяем начало текущей недели (понедельник)
+    const startOfWeek = new Date(now);
+    const day = now.getDay(); // 0 - воскресенье, 1 - понедельник...
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Корректировка, чтобы неделя начиналась с понедельника
+    startOfWeek.setDate(diff);
+    startOfWeek.setHours(0, 0, 0, 0); // Начало дня
+    
+    // Определяем конец текущей недели (воскресенье)
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    endOfWeek.setHours(23, 59, 59, 999); // Конец дня
+    
+    // Фильтруем тренировки текущей недели
+    return trainings.filter(training => {
+      const trainingDate = new Date(training.date);
+      return trainingDate >= startOfWeek && trainingDate <= endOfWeek;
+    });
+  };
+  
+  // Получаем статистику за текущую неделю
+  const weekTrainingsData = getWeekTrainings();
+  
+  // Рассчитываем недельную статистику
+  const weekTrainings = weekTrainingsData.length;
+  const weekTime = weekTrainingsData.reduce((total, training) => 
+    total + (training.duration || 0), 0
+  );
+  const weekTonnage = weekTrainingsData.reduce((total, training) => 
+    total + (training.totalVolume || 0), 0
+  );
+
+  // Получаем сегодняшнюю статистику
+  const today = new Date().toISOString().split('T')[0];
+  const allTrainings = trainingContext?.trainings || [];
+  
+  const todayTrainings = allTrainings.filter(training => {
+    const trainingDate = new Date(training.date).toISOString().split('T')[0];
+    return trainingDate === today;
+  });
+  
+  const todayTonnage = todayTrainings.reduce((total, training) => 
+    total + (training.totalVolume || 0), 0
+  );
+
+  // Форматирование даты начала и конца недели для отображения
+  const getWeekRangeText = () => {
+    const now = new Date();
+    const startOfWeek = new Date(now);
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+    startOfWeek.setDate(diff);
+    
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    
+    const formatDate = (date) => date.toLocaleDateString('ru-RU', { 
+      day: 'numeric', 
+      month: 'short' 
+    });
+    
+    return `${formatDate(startOfWeek)} - ${formatDate(endOfWeek)}`;
+  };
+
   return (
-    <View style={styles.circularContainer}>
-      <View style={[styles.circleOuter, { width: size, height: size }]}>
-        <View style={[
-          styles.circleInner, 
-          { 
-            width: size * 0.85, 
-            height: size * 0.85,
-            borderRadius: (size * 0.85) / 2
-          }
-        ]}>
-          <Text style={styles.circleValue}>{value}</Text>
-          <Text style={styles.circleLabel}>{label}</Text>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <ScrollView 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.scrollContent, safeAreaStyle]}
+      >
+        {/* Верхняя часть - дата и время */}
+        <View style={styles.header}>
+          <Text style={[styles.timeText, { color: colors.text }]}>
+            {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </Text>
+          <Text style={[styles.dateText, { color: colors.textSecondary }]}>
+            {new Date().toLocaleDateString('ru-RU', { 
+              weekday: 'long', 
+              day: 'numeric', 
+              month: 'long' 
+            })}
+          </Text>
         </View>
-      </View>
-      
-      {/* Простой прогресс индикатор */}
-      <View style={styles.progressIndicator}>
-        <View style={[
-          styles.progressFill,
-          { 
-            width: `${percentage}%`,
-            backgroundColor: color 
-          }
-        ]} />
-      </View>
-    </View>
+
+        {/* Круговые прогресс бары */}
+        <View style={styles.progressContainer}>
+          <View style={styles.progressHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Текущая неделя</Text>
+            <Text style={[styles.weekRange, { color: colors.textSecondary }]}>
+              {getWeekRangeText()}
+            </Text>
+          </View>
+          
+          <View style={styles.progressRow}>
+            <CircularProgress
+              size={100}
+              progress={(weekTrainings / 3) * 100}
+              color="#32D74B"
+              label={weekTrainings.toString()}
+              unit="тренировок"
+              maxValue={3}
+            />
+            
+            <CircularProgress
+              size={100}
+              progress={(weekTime / 420) * 100} // 7 часов = 420 минут
+              color="#0A84FF"
+              label={`${Math.floor(weekTime / 60)}ч ${weekTime % 60}м`}
+              unit="время"
+              maxValue={420}
+            />
+            
+            <CircularProgress
+              size={100}
+              progress={(weekTonnage / 15000) * 100} // 15 тонн
+              color="#FF9F0A"
+              label={`${(weekTonnage / 1000).toFixed(1)}т`}
+              unit="тоннаж"
+              maxValue={15000}
+            />
+          </View>
+          
+          {/* Индикатор сброса */}
+          <View style={[styles.resetIndicator, { backgroundColor: colors.surfaceLight }]}>
+            <Text style={[styles.resetText, { color: colors.textSecondary }]}>
+              📅 Сброс каждое воскресенье
+            </Text>
+          </View>
+        </View>
+
+        {/* Карточка "Сегодня" */}
+        <TouchableOpacity 
+          style={[styles.todayCard, { backgroundColor: colors.surface }]}
+          onPress={() => navigation.navigate('AddTraining')}
+          activeOpacity={0.7}
+        >
+          <View style={styles.todayHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Сегодня</Text>
+            <View style={[styles.startButton, { backgroundColor: colors.primary }]}>
+              <Ionicons name="add" size={18} color="#FFFFFF" />
+              <Text style={styles.startButtonText}>Добавить</Text>
+            </View>
+          </View>
+          
+          <View style={styles.todayStats}>
+            <View style={styles.statItem}>
+              <Text style={[styles.statValue, { color: colors.text }]}>{todayTrainings.length}</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Тренировок</Text>
+            </View>
+            <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+            <View style={styles.statItem}>
+              <Text style={[styles.statValue, { color: colors.text }]}>
+                {todayTonnage >= 1000 
+                  ? `${(todayTonnage / 1000).toFixed(1)}т` 
+                  : `${todayTonnage}кг`
+                }
+              </Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Тоннаж</Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+
+        {/* Последние тренировки */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Последние тренировки</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('History')}>
+              <Text style={[styles.seeAllText, { color: colors.primary }]}>Все →</Text>
+            </TouchableOpacity>
+          </View>
+          
+          {allTrainings.length > 0 ? (
+            <View style={styles.trainingsList}>
+              {allTrainings.slice(0, 3).map((training) => (
+                <TouchableOpacity 
+                  key={training.id}
+                  style={[styles.trainingItem, { backgroundColor: colors.surface }]}
+                  onPress={() => navigation.navigate('TrainingDetails', { training })}
+                >
+                  <View style={styles.trainingHeader}>
+                    <Text style={[styles.trainingName, { color: colors.text }]}>
+                      {training.name || 'Тренировка'}
+                    </Text>
+                    <Text style={[styles.trainingTime, { color: colors.textSecondary }]}>
+                      {new Date(training.date).toLocaleDateString('ru-RU', {
+                        day: 'numeric',
+                        month: 'short'
+                      })}
+                    </Text>
+                  </View>
+                  <Text style={[styles.trainingDetails, { color: colors.textSecondary }]}>
+                    {training.exercises?.length || 0} упр. • {training.totalVolume ? `${(training.totalVolume / 1000).toFixed(1)}т` : '0кг'}
+                  </Text>
+                  <Text style={[styles.trainingDuration, { color: colors.textSecondary }]}>
+                    {training.duration ? `${training.duration} мин` : 'Без времени'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.emptyState}>
+              <Ionicons name="barbell-outline" size={50} color={colors.textSecondary} />
+              <Text style={[styles.emptyStateText, { color: colors.text }]}>
+                Ещё нет тренировок
+              </Text>
+              <Text style={[styles.emptyStateSubtext, { color: colors.textSecondary }]}>
+                Добавьте первую тренировку!
+              </Text>
+            </View>
+          )}
+        </View>
+        
+        {/* Добавляем отступ для TabBar */}
+        <View style={{ height: 20 }} />
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
-export default function HomeScreen({ navigation }) {
-  const { trainings, getStats } = useTrainingContext();
-  const stats = getStats();
-  const weeklyStats = stats.week;
-
-  // Форматирование
-  const formatTime = (minutes) => {
-    if (!minutes || isNaN(minutes)) return '0';
-    const mins = parseInt(minutes);
-    return mins < 60 ? `${mins}м` : `${Math.floor(mins / 60)}ч`;
-  };
-
-  const formatWeight = (kg) => {
-    if (!kg || isNaN(kg)) return '0кг';
-    const weight = parseInt(kg);
-    return weight < 1000 ? `${weight}кг` : `${(weight / 1000).toFixed(1)}т`;
-  };
-
-  // Тренировки сегодня
-  const todayTrainings = trainings.filter(t => 
-    moment(t.date).isSame(moment(), 'day')
-  );
-  const todayVolume = todayTrainings.reduce((sum, t) => sum + (t.totalVolume || 0), 0);
-  const todayDuration = todayTrainings.reduce((sum, t) => sum + (t.duration || 0), 0);
-
-  return (
-    <View style={styles.container}>
-      <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        bounces={true}
-      >
-        {/* Заголовок */}
-        <View style={styles.header}>
-          <Text style={styles.date}>{moment().format('dddd, D MMMM')}</Text>
-          <Text style={styles.title}>Тренировки</Text>
-        </View>
-
-        {/* Круговые прогресс-бары */}
-        <View style={styles.circlesRow}>
-          <CircularProgress 
-            value={weeklyStats.count}
-            maxValue={5}
-            color="#0a84ff"
-            label="Тренировок"
-          />
-          <CircularProgress 
-            value={formatTime(weeklyStats.duration)}
-            maxValue="120м"
-            color="#34c759"
-            label="Время"
-          />
-          <CircularProgress 
-            value={formatWeight(weeklyStats.volume)}
-            maxValue="5000кг"
-            color="#ff9500"
-            label="Тоннаж"
-          />
-        </View>
-
-        {/* Быстрые действия */}
-        <View style={styles.quickActions}>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.actionAdd]}
-            onPress={() => navigation.navigate('AddTraining')}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.actionButtonText}>➕ Новая</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={[styles.actionButton, styles.actionStats]}
-            onPress={() => navigation.navigate('Stats')}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.actionButtonText}>📊 Статистика</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={[styles.actionButton, styles.actionHistory]}
-            onPress={() => navigation.navigate('History')}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.actionButtonText}>📋 История</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Статистика за сегодня */}
-        <View style={styles.todayStats}>
-          <Text style={styles.sectionTitle}>Сегодня</Text>
-          <View style={styles.statsGrid}>
-            <View style={styles.statCard}>
-              <Text style={styles.statNumber}>{todayTrainings.length}</Text>
-              <Text style={styles.statLabel}>Тренировок</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statNumber}>{formatWeight(todayVolume)}</Text>
-              <Text style={styles.statLabel}>Тоннаж</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statNumber}>{formatTime(todayDuration)}</Text>
-              <Text style={styles.statLabel}>Время</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Последние тренировки */}
-        <View style={styles.recentSection}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Последние тренировки</Text>
-            {trainings.length > 0 && (
-              <TouchableOpacity onPress={() => navigation.navigate('History')}>
-                <Text style={styles.seeAll}>Все →</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-          
-          {trainings.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <Text style={styles.emptyIcon}>🏋️</Text>
-              <Text style={styles.emptyText}>Нет тренировок</Text>
-              <Text style={styles.emptySubtext}>Начните свою первую тренировку</Text>
-              <TouchableOpacity
-                style={styles.addFirstButton}
-                onPress={() => navigation.navigate('AddTraining')}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.addFirstButtonText}>➕ Добавить первую</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            trainings.slice(0, 3).map((training) => (
-              <TouchableOpacity
-                key={training.id}
-                style={styles.trainingCard}
-                onPress={() => navigation.navigate('TrainingDetails', { training })}
-                activeOpacity={0.7}
-              >
-                <View style={styles.trainingHeader}>
-                  <Text style={styles.trainingTitle} numberOfLines={1}>
-                    {training.title}
-                  </Text>
-                  <Text style={styles.trainingTime}>
-                    {moment(training.date).format('HH:mm')}
-                  </Text>
-                </View>
-                <View style={styles.trainingDetails}>
-                  <Text style={styles.trainingExercises}>
-                    {training.exercises.length} упр. • {formatWeight(training.totalVolume || 0)}
-                  </Text>
-                  <Text style={styles.trainingDuration}>
-                    {training.duration || 0} мин
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))
-          )}
-        </View>
-
-        {/* Мотивация */}
-        <View style={styles.motivationCard}>
-          <Text style={styles.motivationIcon}>💪</Text>
-          <Text style={styles.motivationText}>
-            {trainings.length === 0 
-              ? 'Сделайте первый шаг к своим целям!' 
-              : todayTrainings.length === 0
-              ? 'Сегодня ещё не было тренировок. Самое время начать!'
-              : 'Отличная работа сегодня! Продолжайте в том же духе! 🎯'
-            }
-          </Text>
-        </View>
-      </ScrollView>
-
-      {/* Плавающая кнопка + (поверх TabBar) */}
-      <TouchableOpacity 
-        style={styles.floatingButton}
-        onPress={() => navigation.navigate('AddTraining')}
-        activeOpacity={0.7}
-      >
-        <Text style={styles.floatingButtonIcon}>+</Text>
-      </TouchableOpacity>
-    </View>
-  );
-}
-
-// Стили
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
-  },
-  scrollView: {
-    flex: 1,
   },
   scrollContent: {
-    paddingBottom: 100, // Место для плавающей кнопки и TabBar
+    flexGrow: 1,
+    paddingBottom: 10,
   },
   header: {
-    padding: 20,
-    paddingTop: 40,
-    backgroundColor: '#1c1c1e',
+    paddingHorizontal: 20,
+    paddingTop: 15,
+    paddingBottom: 20,
   },
-  date: {
-    fontSize: 16,
-    color: '#8e8e93',
-    marginBottom: 4,
-  },
-  title: {
+  timeText: {
     fontSize: 32,
-    fontWeight: 'bold',
-    color: '#fff',
+    fontWeight: '700',
   },
-  circlesRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    paddingVertical: 20,
-    backgroundColor: '#1c1c1e',
-    borderTopWidth: 1,
-    borderTopColor: '#2c2c2e',
-  },
-  circularContainer: {
-    alignItems: 'center',
-  },
-  circleOuter: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-  },
-  circleInner: {
-    backgroundColor: '#2c2c2e',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  circleValue: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  circleLabel: {
-    fontSize: 12,
-    color: '#8e8e93',
+  dateText: {
+    fontSize: 16,
+    fontWeight: '500',
     marginTop: 2,
   },
-  progressIndicator: {
-    width: '100%',
-    height: 4,
-    backgroundColor: '#2c2c2e',
-    borderRadius: 2,
-    overflow: 'hidden',
+  progressContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 25,
   },
-  progressFill: {
-    height: '100%',
-  },
-  quickActions: {
+  progressHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    padding: 16,
-    backgroundColor: '#000',
-    borderBottomWidth: 1,
-    borderBottomColor: '#1c1c1e',
-  },
-  actionButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 20,
+    justifyContent: 'space-between',
     alignItems: 'center',
-    minWidth: width * 0.25,
+    marginBottom: 16,
   },
-  actionAdd: {
-    backgroundColor: '#0a84ff',
-  },
-  actionStats: {
-    backgroundColor: '#34c759',
-  },
-  actionHistory: {
-    backgroundColor: '#5856d6',
-  },
-  actionButtonText: {
-    color: '#fff',
-    fontWeight: '600',
+  weekRange: {
     fontSize: 14,
+    fontWeight: '500',
   },
-  todayStats: {
-    padding: 20,
+  progressRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  resetIndicator: {
+    marginTop: 12,
+    padding: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  resetText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  todayCard: {
+    marginHorizontal: 20,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 25,
+  },
+  todayHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 20,
+    fontWeight: '700',
+  },
+  startButton: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    alignItems: 'center',
+  },
+  startButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
     fontWeight: '600',
-    color: '#fff',
-    marginBottom: 16,
+    marginLeft: 6,
+  },
+  todayStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+  },
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statValue: {
+    fontSize: 32,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  statDivider: {
+    width: 1,
+    height: 40,
+  },
+  section: {
+    paddingHorizontal: 20,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -350,72 +352,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
-  seeAll: {
-    color: '#0a84ff',
+  seeAllText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '500',
   },
-  statsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  trainingsList: {
+    marginTop: 10,
   },
-  statCard: {
-    flex: 1,
-    backgroundColor: '#1c1c1e',
+  trainingItem: {
+    borderRadius: 12,
     padding: 16,
-    borderRadius: 12,
-    marginHorizontal: 6,
-    alignItems: 'center',
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#8e8e93',
-  },
-  recentSection: {
-    padding: 20,
-    paddingTop: 0,
-  },
-  emptyCard: {
-    backgroundColor: '#1c1c1e',
-    padding: 30,
-    borderRadius: 16,
-    alignItems: 'center',
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 16,
-  },
-  emptyText: {
-    fontSize: 20,
-    color: '#fff',
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#8e8e93',
-    marginBottom: 20,
-  },
-  addFirstButton: {
-    backgroundColor: '#0a84ff',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  addFirstButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  trainingCard: {
-    backgroundColor: '#1c1c1e',
-    padding: 16,
-    borderRadius: 12,
     marginBottom: 12,
   },
   trainingHeader: {
@@ -424,68 +370,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
-  trainingTitle: {
+  trainingName: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#fff',
-    flex: 1,
-    marginRight: 12,
   },
   trainingTime: {
     fontSize: 14,
-    color: '#8e8e93',
   },
   trainingDetails: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  trainingExercises: {
     fontSize: 14,
-    color: '#8e8e93',
+    marginBottom: 4,
   },
   trainingDuration: {
     fontSize: 14,
-    color: '#ff9500',
-    fontWeight: '600',
+    fontWeight: '500',
   },
-  motivationCard: {
-    margin: 20,
-    backgroundColor: '#1c1c1e',
-    padding: 20,
-    borderRadius: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  motivationIcon: {
-    fontSize: 24,
-    marginRight: 12,
-  },
-  motivationText: {
-    fontSize: 16,
-    color: '#fff',
-    flex: 1,
-    lineHeight: 22,
-  },
-  floatingButton: {
-    position: 'absolute',
-    bottom: 80, // Над TabBar
-    right: 20,
-    width: 60,
-    height: 60,
-    backgroundColor: '#0a84ff',
-    borderRadius: 30,
+  emptyState: {
+    paddingVertical: 30,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
   },
-  floatingButtonIcon: {
-    fontSize: 32,
-    color: '#fff',
-    fontWeight: 'bold',
+  emptyStateText: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginTop: 4,
+    textAlign: 'center',
   },
 });
+
+export default HomeScreen;

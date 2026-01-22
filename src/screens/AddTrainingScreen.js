@@ -3,258 +3,255 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
-  TouchableOpacity,
   StyleSheet,
   ScrollView,
+  TouchableOpacity,
+  TextInput,
   Alert,
   KeyboardAvoidingView,
   Platform
 } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
 import { useTrainingContext } from '../context/TrainingContext';
+import { useSafeArea } from '../hooks/useSafeArea';
 
 export default function AddTrainingScreen({ navigation }) {
+  const { colors } = useTheme();
   const { addTraining } = useTrainingContext();
-  const [title, setTitle] = useState('');
+  const { safeAreaStyle } = useSafeArea();
+  
+  const [trainingName, setTrainingName] = useState('');
   const [duration, setDuration] = useState('');
-  const [exercises, setExercises] = useState([]);
-  const [exerciseName, setExerciseName] = useState('');
-  const [sets, setSets] = useState('');
-  const [reps, setReps] = useState('');
-  const [weight, setWeight] = useState('');
+  const [exercises, setExercises] = useState([
+    { id: 1, name: '', sets: '', reps: '', weight: '' }
+  ]);
 
-  const handleAddExercise = () => {
-    if (!exerciseName.trim() || !sets || !reps) {
-      Alert.alert('Ошибка', 'Заполните название, подходы и повторения');
+  const addExercise = () => {
+    setExercises([...exercises, { 
+      id: exercises.length + 1, 
+      name: '', 
+      sets: '', 
+      reps: '', 
+      weight: '' 
+    }]);
+  };
+
+  const removeExercise = (id) => {
+    if (exercises.length > 1) {
+      setExercises(exercises.filter(ex => ex.id !== id));
+    }
+  };
+
+  const updateExercise = (id, field, value) => {
+    setExercises(exercises.map(ex => 
+      ex.id === id ? { ...ex, [field]: value } : ex
+    ));
+  };
+
+  const handleSubmit = () => {
+    if (!trainingName.trim()) {
+      Alert.alert('Ошибка', 'Введите название тренировки');
       return;
     }
 
-    const newExercise = {
+    const validExercises = exercises.filter(ex => 
+      ex.name.trim() && ex.sets && ex.reps
+    );
+
+    if (validExercises.length === 0) {
+      Alert.alert('Ошибка', 'Добавьте хотя бы одно упражнение');
+      return;
+    }
+
+    const newTraining = {
       id: Date.now().toString(),
-      name: exerciseName.trim(),
-      sets: parseInt(sets) || 0,
-      reps: parseInt(reps) || 0,
-      weight: weight ? parseFloat(weight) : undefined
+      name: trainingName.trim(),
+      date: new Date().toISOString(),
+      duration: parseInt(duration) || 0,
+      exercises: validExercises.map(ex => ({
+        name: ex.name.trim(),
+        sets: parseInt(ex.sets) || 0,
+        reps: parseInt(ex.reps) || 0,
+        weight: parseFloat(ex.weight) || 0
+      }))
     };
 
-    setExercises([...exercises, newExercise]);
-    setExerciseName('');
-    setSets('');
-    setReps('');
-    setWeight('');
+    addTraining(newTraining);
+    Alert.alert('Успешно', 'Тренировка добавлена!', [
+      { text: 'OK', onPress: () => navigation.goBack() }
+    ]);
   };
-
-  const handleRemoveExercise = (id) => {
-    setExercises(exercises.filter(ex => ex.id !== id));
-  };
-
-  const handleSaveTraining = () => {
-  if (!title.trim()) {
-    Alert.alert('Ошибка', 'Введите название тренировки');
-    return;
-  }
-
-  const newTraining = {
-    id: Date.now().toString(),
-    title: title.trim(),
-    date: new Date().toISOString(),
-    duration: duration ? parseInt(duration) : 0,
-    exercises,
-    notes: ''
-  };
-
-  const success = addTraining(newTraining);
-  
-  if (success) {
-    Alert.alert(
-      '✅ Успех!',
-      'Тренировка сохранена',
-      [
-        { 
-          text: 'OK', 
-          onPress: () => navigation.goBack() 
-        }
-      ]
-    );
-  }
-};
-
-  // Рассчитать тоннаж упражнения
-  const calculateExerciseVolume = (exercise) => {
-    return (exercise.sets || 0) * (exercise.reps || 0) * (exercise.weight || 0);
-  };
-
-  // Общий тоннаж тренировки
-  const totalVolume = exercises.reduce((sum, ex) => sum + calculateExerciseVolume(ex), 0);
 
   return (
     <KeyboardAvoidingView 
+      style={[styles.container, { backgroundColor: colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
     >
-      <ScrollView style={styles.scrollView}>
-        {/* Заголовок */}
+      <ScrollView 
+        style={[styles.scrollView, safeAreaStyle]}
+        contentContainerStyle={styles.scrollContent}
+      >
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Новая тренировка</Text>
-          <Text style={styles.headerSubtitle}>Заполните данные ниже</Text>
+          <Text style={[styles.title, { color: colors.text }]}>Новая тренировка</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+            Заполните данные о тренировке
+          </Text>
         </View>
 
         {/* Основная информация */}
-        <View style={styles.card}>
-          <Text style={styles.label}>🏷️ Название тренировки</Text>
-          <TextInput
-            style={styles.input}
-            value={title}
-            onChangeText={setTitle}
-            placeholder="Например: Силовая тренировка"
-            placeholderTextColor="#8e8e93"
-            autoFocus
-          />
+        <View style={[styles.section, { backgroundColor: colors.card }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Основная информация</Text>
+          
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: colors.text }]}>Название тренировки</Text>
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: colors.surfaceLight,
+                color: colors.text,
+                borderColor: colors.border
+              }]}
+              value={trainingName}
+              onChangeText={setTrainingName}
+              placeholder="Например: Силовая тренировка"
+              placeholderTextColor={colors.textSecondary}
+            />
+          </View>
 
-          <Text style={styles.label}>⏱️ Длительность (минуты)</Text>
-          <TextInput
-            style={styles.input}
-            value={duration}
-            onChangeText={setDuration}
-            placeholder="45"
-            placeholderTextColor="#8e8e93"
-            keyboardType="numeric"
-          />
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: colors.text }]}>Длительность (минуты)</Text>
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: colors.surfaceLight,
+                color: colors.text,
+                borderColor: colors.border
+              }]}
+              value={duration}
+              onChangeText={setDuration}
+              placeholder="60"
+              placeholderTextColor={colors.textSecondary}
+              keyboardType="numeric"
+            />
+          </View>
         </View>
 
         {/* Упражнения */}
-        <View style={styles.card}>
+        <View style={[styles.section, { backgroundColor: colors.card }]}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>💪 Упражнения</Text>
-            <Text style={styles.exerciseCount}>{exercises.length} добавлено</Text>
-          </View>
-
-          {/* Форма добавления упражнения */}
-          <View style={styles.exerciseForm}>
-            <View style={styles.formRow}>
-              <TextInput
-                style={[styles.input, styles.flexInput]}
-                value={exerciseName}
-                onChangeText={setExerciseName}
-                placeholder="Название упражнения"
-                placeholderTextColor="#8e8e93"
-              />
-            </View>
-            
-            <View style={styles.formRow}>
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Подходы</Text>
-                <TextInput
-                  style={[styles.input, styles.numberInput]}
-                  value={sets}
-                  onChangeText={setSets}
-                  placeholder="3"
-                  placeholderTextColor="#8e8e93"
-                  keyboardType="numeric"
-                />
-              </View>
-              
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Повторения</Text>
-                <TextInput
-                  style={[styles.input, styles.numberInput]}
-                  value={reps}
-                  onChangeText={setReps}
-                  placeholder="10"
-                  placeholderTextColor="#8e8e93"
-                  keyboardType="numeric"
-                />
-              </View>
-              
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Вес (кг)</Text>
-                <TextInput
-                  style={[styles.input, styles.numberInput]}
-                  value={weight}
-                  onChangeText={setWeight}
-                  placeholder="20"
-                  placeholderTextColor="#8e8e93"
-                  keyboardType="numeric"
-                />
-              </View>
-            </View>
-
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Упражнения</Text>
             <TouchableOpacity
-              style={styles.addButton}
-              onPress={handleAddExercise}
+              style={[styles.addButton, { backgroundColor: colors.primary }]}
+              onPress={addExercise}
             >
-              <Text style={styles.addButtonText}>+ Добавить упражнение</Text>
+              <Text style={styles.addButtonText}>+ Добавить</Text>
             </TouchableOpacity>
           </View>
 
-          {/* Список добавленных упражнений */}
-          {exercises.map((exercise) => (
-            <View key={exercise.id} style={styles.exerciseCard}>
+          {exercises.map((exercise, index) => (
+            <View 
+              key={exercise.id} 
+              style={[styles.exerciseCard, { 
+                backgroundColor: colors.surfaceLight,
+                borderColor: colors.border
+              }]}
+            >
               <View style={styles.exerciseHeader}>
-                <Text style={styles.exerciseName}>{exercise.name}</Text>
-                <TouchableOpacity
-                  onPress={() => handleRemoveExercise(exercise.id)}
-                  style={styles.deleteButton}
-                >
-                  <Text style={styles.deleteText}>✕</Text>
-                </TouchableOpacity>
+                <Text style={[styles.exerciseNumber, { color: colors.text }]}>
+                  Упражнение {index + 1}
+                </Text>
+                {exercises.length > 1 && (
+                  <TouchableOpacity
+                    onPress={() => removeExercise(exercise.id)}
+                    style={[styles.removeButton, { backgroundColor: colors.danger }]}
+                  >
+                    <Text style={styles.removeButtonText}>✕</Text>
+                  </TouchableOpacity>
+                )}
               </View>
-              
-              <View style={styles.exerciseDetails}>
-                <View style={styles.detailItem}>
-                  <Text style={styles.detailLabel}>Подходы</Text>
-                  <Text style={styles.detailValue}>{exercise.sets}</Text>
+
+              <View style={styles.exerciseInputs}>
+                <View style={styles.inputRow}>
+                  <Text style={[styles.smallLabel, { color: colors.text }]}>Название</Text>
+                  <TextInput
+                    style={[styles.smallInput, { 
+                      backgroundColor: colors.card,
+                      color: colors.text,
+                      borderColor: colors.border
+                    }]}
+                    value={exercise.name}
+                    onChangeText={(value) => updateExercise(exercise.id, 'name', value)}
+                    placeholder="Жим лежа"
+                    placeholderTextColor={colors.textSecondary}
+                  />
                 </View>
-                <View style={styles.detailItem}>
-                  <Text style={styles.detailLabel}>Повторения</Text>
-                  <Text style={styles.detailValue}>{exercise.reps}</Text>
-                </View>
-                <View style={styles.detailItem}>
-                  <Text style={styles.detailLabel}>Вес</Text>
-                  <Text style={styles.detailValue}>{exercise.weight || 0} кг</Text>
-                </View>
-                <View style={styles.detailItem}>
-                  <Text style={styles.detailLabel}>Тоннаж</Text>
-                  <Text style={styles.detailValue}>
-                    {calculateExerciseVolume(exercise)} кг
-                  </Text>
+
+                <View style={styles.inputRow}>
+                  <View style={styles.inputColumn}>
+                    <Text style={[styles.smallLabel, { color: colors.text }]}>Подходы</Text>
+                    <TextInput
+                      style={[styles.smallInput, { 
+                        backgroundColor: colors.card,
+                        color: colors.text,
+                        borderColor: colors.border
+                      }]}
+                      value={exercise.sets}
+                      onChangeText={(value) => updateExercise(exercise.id, 'sets', value)}
+                      placeholder="3"
+                      placeholderTextColor={colors.textSecondary}
+                      keyboardType="numeric"
+                    />
+                  </View>
+
+                  <View style={styles.inputColumn}>
+                    <Text style={[styles.smallLabel, { color: colors.text }]}>Повторения</Text>
+                    <TextInput
+                      style={[styles.smallInput, { 
+                        backgroundColor: colors.card,
+                        color: colors.text,
+                        borderColor: colors.border
+                      }]}
+                      value={exercise.reps}
+                      onChangeText={(value) => updateExercise(exercise.id, 'reps', value)}
+                      placeholder="10"
+                      placeholderTextColor={colors.textSecondary}
+                      keyboardType="numeric"
+                    />
+                  </View>
+
+                  <View style={styles.inputColumn}>
+                    <Text style={[styles.smallLabel, { color: colors.text }]}>Вес (кг)</Text>
+                    <TextInput
+                      style={[styles.smallInput, { 
+                        backgroundColor: colors.card,
+                        color: colors.text,
+                        borderColor: colors.border
+                      }]}
+                      value={exercise.weight}
+                      onChangeText={(value) => updateExercise(exercise.id, 'weight', value)}
+                      placeholder="50"
+                      placeholderTextColor={colors.textSecondary}
+                      keyboardType="numeric"
+                    />
+                  </View>
                 </View>
               </View>
             </View>
           ))}
-
-          {/* Итого по тренировке */}
-          {exercises.length > 0 && (
-            <View style={styles.totalCard}>
-              <Text style={styles.totalTitle}>📊 Итого по тренировке</Text>
-              <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>Всего упражнений:</Text>
-                <Text style={styles.totalValue}>{exercises.length}</Text>
-              </View>
-              <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>Общий тоннаж:</Text>
-                <Text style={[styles.totalValue, styles.highlight]}>
-                  {totalVolume} кг
-                </Text>
-              </View>
-            </View>
-          )}
         </View>
 
         {/* Кнопки действий */}
         <View style={styles.actions}>
           <TouchableOpacity
-            style={[styles.button, styles.saveButton]}
-            onPress={handleSaveTraining}
-          >
-            <Text style={styles.saveButtonText}>💾 Сохранить тренировку</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.button, styles.cancelButton]}
+            style={[styles.cancelButton, { borderColor: colors.border }]}
             onPress={() => navigation.goBack()}
           >
-            <Text style={styles.cancelButtonText}>Отмена</Text>
+            <Text style={[styles.cancelButtonText, { color: colors.text }]}>Отмена</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[styles.saveButton, { backgroundColor: colors.primary }]}
+            onPress={handleSubmit}
+          >
+            <Text style={styles.saveButtonText}>Сохранить тренировку</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -265,54 +262,40 @@ export default function AddTrainingScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
   },
   scrollView: {
     flex: 1,
   },
+  scrollContent: {
+    paddingBottom: 40,
+  },
   header: {
-    padding: 20,
-    backgroundColor: '#1c1c1e',
+    marginHorizontal: 20,
+    marginTop: 15,
+    padding: 24,
+    borderRadius: 20,
     alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 4,
-  },
-  headerSubtitle: {
-    fontSize: 16,
-    color: '#8e8e93',
-    color: '#8e8e93',
-    textAlign: 'center',
     marginBottom: 20,
   },
-  card: {
-    backgroundColor: '#1c1c1e',
-    margin: 16,
-    padding: 20,
-    borderRadius: 16,
-  },
-  label: {
-    fontSize: 16,
-    color: '#fff',
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
     marginBottom: 8,
-    fontWeight: '500',
   },
-  input: {
-    backgroundColor: '#2c2c2e',
-    color: '#fff',
+  subtitle: {
     fontSize: 16,
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  flexInput: {
-    flex: 1,
-  },
-  numberInput: {
     textAlign: 'center',
+  },
+  section: {
+    marginHorizontal: 20,
+    marginBottom: 20,
+    padding: 20,
+    borderRadius: 12,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 16,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -320,50 +303,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  exerciseCount: {
-    color: '#0a84ff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  exerciseForm: {
-    marginBottom: 20,
-  },
-  formRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
   inputGroup: {
-    flex: 1,
-    marginHorizontal: 4,
+    marginBottom: 16,
   },
-  inputLabel: {
-    color: '#8e8e93',
-    fontSize: 12,
-    marginBottom: 4,
-    textAlign: 'center',
+  label: {
+    fontSize: 16,
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  input: {
+    height: 50,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    fontSize: 16,
   },
   addButton: {
-    backgroundColor: '#0a84ff',
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
   },
   addButtonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
   },
   exerciseCard: {
-    backgroundColor: '#2c2c2e',
-    padding: 16,
-    borderRadius: 12,
     marginBottom: 12,
+    padding: 16,
+    borderRadius: 8,
+    borderWidth: 1,
   },
   exerciseHeader: {
     flexDirection: 'row',
@@ -371,92 +340,70 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
-  exerciseName: {
-    color: '#fff',
-    fontSize: 18,
+  exerciseNumber: {
+    fontSize: 16,
     fontWeight: '600',
-    flex: 1,
   },
-  deleteButton: {
-    padding: 4,
+  removeButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  deleteText: {
-    color: '#ff3b30',
-    fontSize: 20,
+  removeButtonText: {
+    color: '#fff',
+    fontSize: 16,
     fontWeight: 'bold',
   },
-  exerciseDetails: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  exerciseInputs: {
+    gap: 12,
   },
-  detailItem: {
-    alignItems: 'center',
+  inputRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  inputColumn: {
     flex: 1,
   },
-  detailLabel: {
-    color: '#8e8e93',
-    fontSize: 12,
+  smallLabel: {
+    fontSize: 14,
     marginBottom: 4,
   },
-  detailValue: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  totalCard: {
-    backgroundColor: '#2c2c2e',
-    padding: 16,
-    borderRadius: 12,
-    marginTop: 16,
-  },
-  totalTitle: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  totalLabel: {
-    color: '#8e8e93',
-    fontSize: 16,
-  },
-  totalValue: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  highlight: {
-    color: '#34c759',
+  smallInput: {
+    height: 40,
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    fontSize: 14,
   },
   actions: {
-    padding: 16,
-    paddingBottom: 32,
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 20,
+    marginTop: 20,
   },
-  button: {
-    padding: 18,
-    borderRadius: 14,
+  cancelButton: {
+    flex: 1,
+    height: 50,
+    borderWidth: 1,
+    borderRadius: 12,
     alignItems: 'center',
-    marginBottom: 12,
+    justifyContent: 'center',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   saveButton: {
-    backgroundColor: '#0a84ff',
+    flex: 2,
+    height: 50,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   saveButtonText: {
     color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  cancelButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: '#2c2c2e',
-  },
-  cancelButtonText: {
-    color: '#ff3b30',
     fontSize: 16,
     fontWeight: '600',
   },

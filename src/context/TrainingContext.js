@@ -41,7 +41,7 @@ export const TrainingProvider = ({ children }) => {
       totalVolume: calculateTotalVolume(training.exercises)
     };
     setTrainings(prev => [trainingWithVolume, ...prev]);
-    return true; // для уведомлений
+    return true;
   };
 
   // Удалить тренировку
@@ -72,7 +72,6 @@ export const TrainingProvider = ({ children }) => {
     const allTrainings = trainings;
     const weekTrainings = trainings.filter(t => new Date(t.date) >= oneWeekAgo);
 
-    // Общий тоннаж
     const totalVolume = allTrainings.reduce((sum, t) => sum + (t.totalVolume || 0), 0);
     const weekVolume = weekTrainings.reduce((sum, t) => sum + (t.totalVolume || 0), 0);
 
@@ -124,6 +123,77 @@ export const TrainingProvider = ({ children }) => {
     };
   };
 
+  // Вспомогательная функция для получения последних 7 дней
+  const getLast7Days = () => {
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      days.push(date);
+    }
+    return days;
+  };
+
+  // Данные для недельного графика
+  const getWeeklyChartData = () => {
+    const last7Days = getLast7Days();
+    const daysOfWeek = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+    
+    const chartData = daysOfWeek.map(day => ({ 
+      day, 
+      тренировки: 0, 
+      тоннаж: 0, 
+      время: 0 
+    }));
+
+    trainings.forEach(training => {
+      const trainingDate = new Date(training.date);
+      
+      const dayIndex = last7Days.findIndex(day => 
+        day.toDateString() === trainingDate.toDateString()
+      );
+      
+      if (dayIndex !== -1) {
+        const dayOfWeekIndex = trainingDate.getDay();
+        const chartIndex = dayOfWeekIndex === 0 ? 6 : dayOfWeekIndex - 1;
+        
+        chartData[chartIndex].тренировки += 1;
+        chartData[chartIndex].тоннаж += training.totalVolume || 0;
+        chartData[chartIndex].время += training.duration || 0;
+      }
+    });
+
+    return chartData;
+  };
+
+  // Данные для месячного графика
+  const getMonthlyComparisonData = () => {
+    const weeklyData = [];
+    const now = new Date();
+    
+    for (let week = 3; week >= 0; week--) {
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - (week * 7) - now.getDay());
+      
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 7);
+      
+      const weekTrainings = trainings.filter(t => {
+        const date = new Date(t.date);
+        return date >= weekStart && date < weekEnd;
+      });
+      
+      weeklyData.push({
+        неделя: `Неделя ${4 - week}`,
+        тренировки: weekTrainings.length,
+        тоннаж: weekTrainings.reduce((sum, t) => sum + (t.totalVolume || 0), 0),
+        время: weekTrainings.reduce((sum, t) => sum + (t.duration || 0), 0)
+      });
+    }
+    
+    return weeklyData;
+  };
+
   return (
     <TrainingContext.Provider
       value={{
@@ -132,7 +202,9 @@ export const TrainingProvider = ({ children }) => {
         deleteTraining,
         clearAllTrainings,
         getStats,
-        getWeeklyComparison
+        getWeeklyComparison,
+        getWeeklyChartData,
+        getMonthlyComparisonData
       }}
     >
       {children}
@@ -147,3 +219,5 @@ export const useTrainingContext = () => {
   }
   return context;
 };
+
+export default TrainingContext;

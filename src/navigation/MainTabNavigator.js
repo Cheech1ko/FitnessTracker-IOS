@@ -1,114 +1,78 @@
 // src/navigation/MainTabNavigator.js
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Text, View } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
 import HomeScreen from '../screens/HomeScreen';
-import StatsScreen from '../screens/StatsScreen';
 import HistoryScreen from '../screens/HistoryScreen';
+import StatsScreen from '../screens/StatsScreen';
 import ComparisonScreen from '../screens/ComparisonScreen';
+import SettingsScreen from '../screens/SettingsScreen';
 
 const Tab = createBottomTabNavigator();
 
-// Простой кастомный TabBar
-const CustomTabBar = ({ state, descriptors, navigation }) => {
-  return (
-    <View style={{
-      flexDirection: 'row',
-      backgroundColor: '#1c1c1e',
-      borderTopWidth: 1,
-      borderTopColor: '#2c2c2e',
-      paddingBottom: 8,
-      height: 65,
-    }}>
-      {state.routes.map((route, index) => {
-        const { options } = descriptors[route.key];
-        const label = options.tabBarLabel || options.title || route.name;
-        const isFocused = state.index === index;
-
-        const onPress = () => {
-          navigation.navigate(route.name);
-        };
-
-        // Иконки для табов
-        const icons = {
-          Home: '◉',
-          History: '📋',
-          Stats: '📊',
-          Comparison: '⇅',
-        };
-
-        return (
-          <View 
-            key={route.key} 
-            style={{ 
-              flex: 1, 
-              alignItems: 'center',
-              justifyContent: 'center',
-              paddingTop: 8,
-            }}
-          >
-            <Text
-              onPress={onPress}
-              style={{
-                fontSize: 24,
-                color: isFocused ? '#0a84ff' : '#8e8e93',
-                marginBottom: 4,
-              }}
-            >
-              {icons[route.name]}
-            </Text>
-            <Text
-              style={{
-                fontSize: 10,
-                color: isFocused ? '#0a84ff' : '#8e8e93',
-                fontWeight: isFocused ? '600' : '400',
-              }}
-            >
-              {label}
-            </Text>
-          </View>
-        );
-      })}
-    </View>
-  );
-};
-
 export default function MainTabNavigator() {
+  const { colors } = useTheme();
+  
   return (
     <Tab.Navigator
-      tabBar={(props) => <CustomTabBar {...props} />}
       screenOptions={{
+        tabBarStyle: {
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
+        },
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textSecondary,
         headerShown: false,
       }}
     >
       <Tab.Screen 
-        name="Home" 
+        name="Главная" 
         component={HomeScreen}
         options={{
-          tabBarLabel: 'Главная',
+          tabBarIcon: ({ color, size }) => (
+            <Text style={{ fontSize: size, color }}>🏠</Text>
+          ),
         }}
       />
       <Tab.Screen 
-        name="History" 
+        name="История" 
         component={HistoryScreen}
         options={{
-          tabBarLabel: 'История',
+          tabBarIcon: ({ color, size }) => (
+            <Text style={{ fontSize: size, color }}>📝</Text>
+          ),
         }}
       />
       <Tab.Screen 
-        name="Stats" 
+        name="Статистика" 
         component={StatsScreen}
         options={{
-          tabBarLabel: 'Статистика',
+          tabBarIcon: ({ color, size }) => (
+            <Text style={{ fontSize: size, color }}>📊</Text>
+          ),
         }}
       />
       <Tab.Screen 
-        name="Comparison" 
+        name="Сравнение" 
         component={ComparisonScreen}
         options={{
-          tabBarLabel: 'Сравнение',
+          tabBarIcon: ({ color, size }) => (
+            <Text style={{ fontSize: size, color }}>⚖️</Text>
+          ),
+        }}
+      />
+      <Tab.Screen 
+        name="Настройки" 
+        component={SettingsScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <Text style={{ fontSize: size, color }}>⚙️</Text>
+          ),
         }}
       />
     </Tab.Navigator>
   );
 }
+
+// Импортируем Text
+import { Text } from 'react-native';
